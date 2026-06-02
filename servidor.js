@@ -1,19 +1,35 @@
 const { WebSocketServer } = require('ws');
-const wss = new WebSocketServer({ port: 8080 });
+const http = require('http');
 
-wss.on('connection', (ws) => {
-  console.log('Alguém entrou na Jam!', ws._socket.remoteAddress);
+const PORT = process.env.PORT || 8080;
+
+// Render (Web Service) precisa de um servidor HTTP escutando na porta atribuída
+// para passar o health check. O WebSocket sobe em cima desse mesmo servidor.
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Servidor da Jam ativo!\n');
+});
+
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', (ws, req) => {
+  console.log('Alguém entrou na Jam!', req.socket.remoteAddress);
 
   ws.on('message', (data) => {
     const mensagem = JSON.parse(data);
 
-    // Repassa a mensagem para TODOS os outros conectados, menos para quem enviou
     wss.clients.forEach((client) => {
       if (client !== ws && client.readyState === 1) {
         client.send(JSON.stringify(mensagem));
       }
     });
   });
+
+  ws.on('close', () => {
+    console.log('Alguém saiu da Jam.');
+  });
 });
 
-console.log('Servidor da Jam rodando na porta 8080!');
+server.listen(PORT, () => {
+  console.log(`Servidor da Jam rodando na porta ${PORT}!`);
+});
