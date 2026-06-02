@@ -1,5 +1,5 @@
 // Substitua pelo IP do seu servidor na nuvem quando for usar online
-const socket = new WebSocket('ws://localhost:8080'); 
+const socket = new WebSocket('wss://teste-websocket-youtube.onrender.com'); 
 
 socket.onmessage = (event) => {
   const dados = JSON.parse(event.data);
