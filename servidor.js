@@ -16,4 +16,4 @@ wss.on('connection', (ws) => {
   });
 });
 
-console.log('Servidor da Jam rodando na porta 8080');
+console.log('Servidor da Jam rodando na porta 8080!');
