@@ -3,8 +3,6 @@ const http = require('http');
 
 const PORT = process.env.PORT || 8080;
 
-// Render (Web Service) precisa de um servidor HTTP escutando na porta atribuída
-// para passar o health check. O WebSocket sobe em cima desse mesmo servidor.
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Servidor da Jam ativo!\n');
@@ -12,12 +10,28 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server });
 
+function broadcastOuvintes() {
+  const total = wss.clients.size;
+  const payload = JSON.stringify({ tipo: 'ouvintes', total });
+  wss.clients.forEach((client) => {
+    if (client.readyState === 1) client.send(payload);
+  });
+  console.log(`Ouvintes na Jam: ${total}`);
+}
+
 wss.on('connection', (ws, req) => {
   console.log('Alguém entrou na Jam!', req.socket.remoteAddress);
+  broadcastOuvintes();
 
   ws.on('message', (data) => {
-    const mensagem = JSON.parse(data);
+    let mensagem;
+    try {
+      mensagem = JSON.parse(data);
+    } catch {
+      return;
+    }
 
+    // Repassa pra todos os outros (broadcast)
     wss.clients.forEach((client) => {
       if (client !== ws && client.readyState === 1) {
         client.send(JSON.stringify(mensagem));
@@ -27,6 +41,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     console.log('Alguém saiu da Jam.');
+    broadcastOuvintes();
   });
 });
 

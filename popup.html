@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>YouTube Jam</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --yt-red: #ff0000;
+      --yt-red-hover: #cc0000;
+      --bg: #0f0f0f;
+      --surface: #1f1f1f;
+      --surface-hover: #2a2a2a;
+      --text: #ffffff;
+      --text-secondary: #aaaaaa;
+      --text-muted: #717171;
+    }
+
+    html, body {
+      width: 320px;
+      font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .brand-logo {
+      width: 22px;
+      height: 16px;
+      background: var(--yt-red);
+      border-radius: 4px;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .brand-logo::after {
+      content: "";
+      width: 0;
+      height: 0;
+      border-left: 6px solid #fff;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      margin-left: 2px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #535353;
+      transition: background 0.2s;
+    }
+
+    .status-dot.connected { background: #2ecc40; box-shadow: 0 0 6px #2ecc40; }
+    .status-dot.connecting { background: #f1c40f; }
+    .status-dot.disconnected { background: var(--yt-red); }
+
+    .thumb-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: var(--surface);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .thumb-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .thumb-placeholder {
+      color: var(--text-muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .listeners-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      backdrop-filter: blur(4px);
+    }
+
+    .info .title {
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .info .channel {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .play-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--yt-red);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.1s;
+      flex-shrink: 0;
+    }
+
+    .play-btn:hover { background: var(--yt-red-hover); transform: scale(1.05); }
+    .play-btn:active { transform: scale(0.95); }
+    .play-btn:disabled { background: #535353; cursor: not-allowed; transform: none; }
+
+    .play-icon {
+      width: 0;
+      height: 0;
+      border-left: 14px solid #fff;
+      border-top: 9px solid transparent;
+      border-bottom: 9px solid transparent;
+      margin-left: 4px;
+    }
+
+    .pause-icon {
+      width: 14px;
+      height: 16px;
+      display: flex;
+      gap: 4px;
+    }
+
+    .pause-icon::before,
+    .pause-icon::after {
+      content: "";
+      width: 5px;
+      height: 16px;
+      background: #fff;
+      border-radius: 1px;
+    }
+
+    .sync-btn {
+      flex: 1;
+      background: var(--surface);
+      color: var(--text);
+      border: none;
+      border-radius: 999px;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .sync-btn:hover { background: var(--surface-hover); }
+    .sync-btn:disabled { background: var(--surface); color: var(--text-muted); cursor: not-allowed; }
+
+    .footer {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand">
+        <span class="brand-logo"></span>
+        <span>Jam</span>
+      </div>
+      <div class="status">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">—</span>
+      </div>
+    </div>
+
+    <div class="thumb-wrapper" id="thumb-wrapper">
+      <div class="thumb-placeholder" id="thumb-placeholder">Abra um vídeo do YouTube</div>
+      <div class="listeners-badge" id="listeners-badge" style="display:none;">
+        <span>👥</span>
+        <span id="listeners-count">0</span>
+      </div>
+    </div>
+
+    <div class="info">
+      <div class="title" id="title">—</div>
+      <div class="channel" id="channel"></div>
+    </div>
+
+    <div class="controls">
+      <button id="play-btn" class="play-btn" disabled title="Play/Pause">
+        <span class="play-icon" id="play-icon"></span>
+      </button>
+      <button id="sync-btn" class="sync-btn" disabled>Sincronizar</button>
+    </div>
+
+    <div class="footer" id="footer">Servidor não conectado</div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

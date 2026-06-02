@@ -3,8 +3,12 @@
   "name": "YouTube Jam Extension",
   "version": "1.0",
   "description": "Sincronize músicas e playlists do YouTube com seus amigos.",
-  "permissions": ["tabs", "activeTab"],
+  "permissions": ["tabs", "activeTab", "scripting"],
   "host_permissions": ["https://*.youtube.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "YouTube Jam"
+  },
   "background": {
     "service_worker": "background.js"
   },

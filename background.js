@@ -2,12 +2,16 @@ const SERVER_URL = 'wss://teste-websocket-youtube.onrender.com';
 const RECONNECT_DELAY_MS = 3000;
 
 let socket = null;
+let estadoConexao = 'connecting'; // 'connecting' | 'connected' | 'disconnected'
+let ouvintes = 0;
 
 function conectar() {
+  estadoConexao = 'connecting';
   console.log('[Jam] Tentando conectar em', SERVER_URL);
   socket = new WebSocket(SERVER_URL);
 
   socket.onopen = () => {
+    estadoConexao = 'connected';
     console.log('[Jam] ✅ Conectado ao servidor!');
   };
 
@@ -18,6 +22,13 @@ function conectar() {
       dados = JSON.parse(event.data);
     } catch (e) {
       console.warn('[Jam] Mensagem inválida (não é JSON):', event.data);
+      return;
+    }
+
+    // Mensagem de controle: total de ouvintes
+    if (dados?.tipo === 'ouvintes') {
+      ouvintes = dados.total ?? 0;
+      console.log(`[Jam] 👥 Ouvintes na Jam: ${ouvintes}`);
       return;
     }
 
@@ -42,15 +53,21 @@ function conectar() {
   };
 
   socket.onclose = (event) => {
-    console.warn(`[Jam] 🔌 Conexão fechada (code=${event.code}, reason=${event.reason || 'sem motivo'}). Reconectando em ${RECONNECT_DELAY_MS}ms...`);
+    estadoConexao = 'disconnected';
+    ouvintes = 0;
+    console.warn(`[Jam] 🔌 Conexão fechada (code=${event.code}). Reconectando em ${RECONNECT_DELAY_MS}ms...`);
     setTimeout(conectar, RECONNECT_DELAY_MS);
   };
 }
 
 conectar();
 
-// Escuta o que acontece no YouTube e manda para o servidor
-chrome.runtime.onMessage.addListener((mensagem) => {
+chrome.runtime.onMessage.addListener((mensagem, sender, sendResponse) => {
+  if (mensagem?.tipo === 'obterStatus') {
+    sendResponse({ estado: estadoConexao, ouvintes });
+    return true;
+  }
+
   console.log('[Jam] ⬆️ Comando vindo da aba do YouTube:', mensagem);
 
   if (!socket || socket.readyState !== WebSocket.OPEN) {

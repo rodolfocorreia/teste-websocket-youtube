@@ -38,10 +38,37 @@ const monitor = new MutationObserver(() => {
 });
 monitor.observe(document.body, { childList: true, subtree: true });
 
-// 2. Escuta os comandos que vêm do OUTRO computador
-chrome.runtime.onMessage.addListener((playerComando) => {
+// 2. Escuta os comandos que vêm do OUTRO computador (ou do popup)
+chrome.runtime.onMessage.addListener((playerComando, sender, sendResponse) => {
   const video = obterVideo();
-  if (!video) return;
+  if (!video) {
+    sendResponse?.({ erro: 'sem-video' });
+    return;
+  }
+
+  // Popup pedindo o estado atual do player
+  if (playerComando.acao === 'obterEstadoPlayer') {
+    sendResponse({ tocando: !video.paused, tempo: video.currentTime });
+    return true;
+  }
+
+  // Comando vindo do popup: força broadcast do tempo atual
+  if (playerComando.acao === 'forcarSincronizar') {
+    chrome.runtime.sendMessage({ acao: 'sincronizarTempo', tempo: video.currentTime });
+    return;
+  }
+
+  // Popup pedindo toggle play/pause local (o evento play/pause do <video>
+  // já dispara o broadcast pelos listeners configurados em configurarOuvintes)
+  if (playerComando.acao === 'togglePlay') {
+    if (video.paused) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+    sendResponse({ tocando: !video.paused });
+    return true;
+  }
 
   recebendoComando = true;
 
