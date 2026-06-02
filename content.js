@@ -48,7 +48,11 @@ chrome.runtime.onMessage.addListener((playerComando, sender, sendResponse) => {
 
   // Popup pedindo o estado atual do player
   if (playerComando.acao === 'obterEstadoPlayer') {
-    sendResponse({ tocando: !video.paused, tempo: video.currentTime });
+    sendResponse({
+      tocando: !video.paused,
+      tempo: video.currentTime,
+      duracao: isFinite(video.duration) ? video.duration : 0
+    });
     return true;
   }
 
@@ -56,6 +60,13 @@ chrome.runtime.onMessage.addListener((playerComando, sender, sendResponse) => {
   if (playerComando.acao === 'forcarSincronizar') {
     chrome.runtime.sendMessage({ acao: 'sincronizarTempo', tempo: video.currentTime });
     return;
+  }
+
+  // Popup pedindo pra pular pra um tempo específico (clique na barra de progresso)
+  if (playerComando.acao === 'seekPara') {
+    video.currentTime = playerComando.tempo;
+    sendResponse({ tempo: video.currentTime });
+    return true;
   }
 
   // Popup pedindo toggle play/pause local (o evento play/pause do <video>

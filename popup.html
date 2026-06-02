@@ -148,6 +148,40 @@
       overflow: hidden;
     }
 
+    .progress {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--surface);
+      border-radius: 2px;
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .progress-bar:hover { height: 6px; }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--yt-red);
+      width: 0%;
+      transition: width 0.2s linear;
+      border-radius: 2px;
+    }
+
+    .progress-times {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
     .controls {
       display: flex;
       gap: 8px;
@@ -244,6 +278,16 @@
     <div class="info">
       <div class="title" id="title">—</div>
       <div class="channel" id="channel"></div>
+    </div>
+
+    <div class="progress">
+      <div class="progress-bar" id="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-times">
+        <span id="time-current">0:00</span>
+        <span id="time-total">0:00</span>
+      </div>
     </div>
 
     <div class="controls">

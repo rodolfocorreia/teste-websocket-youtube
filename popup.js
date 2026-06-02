@@ -1,7 +1,6 @@
 const statusDot = document.getElementById('status-dot');
 const statusText = document.getElementById('status-text');
 const thumbWrapper = document.getElementById('thumb-wrapper');
-const thumbPlaceholder = document.getElementById('thumb-placeholder');
 const listenersBadge = document.getElementById('listeners-badge');
 const listenersCount = document.getElementById('listeners-count');
 const titleEl = document.getElementById('title');
@@ -10,9 +9,14 @@ const playBtn = document.getElementById('play-btn');
 const playIcon = document.getElementById('play-icon');
 const syncBtn = document.getElementById('sync-btn');
 const footerEl = document.getElementById('footer');
+const progressBar = document.getElementById('progress-bar');
+const progressFill = document.getElementById('progress-fill');
+const timeCurrent = document.getElementById('time-current');
+const timeTotal = document.getElementById('time-total');
 
-let abaAtivaId = null;
+let abaYouTubeId = null;
 let tocando = false;
+let duracao = 0;
 
 function extrairVideoId(url) {
   try {
@@ -20,6 +24,16 @@ function extrairVideoId(url) {
   } catch {
     return null;
   }
+}
+
+function formatarTempo(seg) {
+  if (!seg || !isFinite(seg)) return '0:00';
+  const total = Math.floor(seg);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 function renderStatus(estado, ouvintes) {
@@ -50,26 +64,57 @@ function renderStatus(estado, ouvintes) {
 }
 
 function renderPlayIcon() {
-  if (tocando) {
-    playIcon.className = 'pause-icon';
-  } else {
-    playIcon.className = 'play-icon';
+  playIcon.className = tocando ? 'pause-icon' : 'play-icon';
+}
+
+function renderProgresso(tempo) {
+  const pct = duracao > 0 ? Math.min(100, (tempo / duracao) * 100) : 0;
+  progressFill.style.width = pct + '%';
+  timeCurrent.textContent = formatarTempo(tempo);
+  timeTotal.textContent = formatarTempo(duracao);
+}
+
+function renderSemVideo(msg) {
+  const ph = thumbWrapper.querySelector('.thumb-placeholder');
+  if (ph) ph.textContent = msg;
+  thumbWrapper.querySelector('img')?.remove();
+  if (!thumbWrapper.querySelector('.thumb-placeholder')) {
+    const div = document.createElement('div');
+    div.className = 'thumb-placeholder';
+    div.textContent = msg;
+    thumbWrapper.prepend(div);
   }
+  titleEl.textContent = msg;
+  channelEl.textContent = '';
+  playBtn.disabled = true;
+  syncBtn.disabled = true;
+  progressFill.style.width = '0%';
+  timeCurrent.textContent = '0:00';
+  timeTotal.textContent = '0:00';
+}
+
+async function localizarAbaYouTube() {
+  // Procura QUALQUER aba do YouTube (não importa se é a ativa) — assim o popup
+  // funciona mesmo quando o usuário está em outra aba.
+  const tabs = await chrome.tabs.query({ url: 'https://*.youtube.com/watch*' });
+  if (tabs.length === 0) return null;
+
+  // Preferir a aba ativa da janela atual se houver uma do YouTube ali
+  const [ativa] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (ativa && tabs.some(t => t.id === ativa.id)) return ativa;
+  return tabs[0];
 }
 
 async function carregarVideoAtivo() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = await localizarAbaYouTube();
 
-  if (!tab || !tab.url || !tab.url.includes('youtube.com/watch')) {
-    thumbPlaceholder.style.display = 'block';
-    titleEl.textContent = 'Nenhum vídeo aberto';
-    channelEl.textContent = '';
-    playBtn.disabled = true;
-    syncBtn.disabled = true;
+  if (!tab) {
+    renderSemVideo('Abra um vídeo do YouTube');
+    abaYouTubeId = null;
     return;
   }
 
-  abaAtivaId = tab.id;
+  abaYouTubeId = tab.id;
 
   const videoId = extrairVideoId(tab.url);
   if (videoId) {
@@ -81,7 +126,9 @@ async function carregarVideoAtivo() {
       img.onerror = () => { img.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`; };
       thumbWrapper.prepend(img);
     }
-    img.src = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    if (!img.src.includes(videoId)) {
+      img.src = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    }
   }
 
   const tituloLimpo = (tab.title || '').replace(/\s*-\s*YouTube\s*$/, '');
@@ -100,17 +147,26 @@ async function carregarVideoAtivo() {
     channelEl.textContent = '';
   }
 
-  // Pega estado atual do player
-  try {
-    const estado = await chrome.tabs.sendMessage(tab.id, { acao: 'obterEstadoPlayer' });
-    tocando = !!estado?.tocando;
-  } catch {
-    tocando = false;
-  }
-  renderPlayIcon();
-
   playBtn.disabled = false;
   syncBtn.disabled = false;
+
+  await atualizarEstadoPlayer();
+}
+
+async function atualizarEstadoPlayer() {
+  if (!abaYouTubeId) return;
+  try {
+    const estado = await chrome.tabs.sendMessage(abaYouTubeId, { acao: 'obterEstadoPlayer' });
+    if (estado) {
+      tocando = !!estado.tocando;
+      duracao = estado.duracao || 0;
+      renderPlayIcon();
+      renderProgresso(estado.tempo || 0);
+    }
+  } catch {
+    // aba pode ter sido fechada — tentar relocalizar na próxima
+    abaYouTubeId = null;
+  }
 }
 
 async function carregarStatus() {
@@ -122,10 +178,22 @@ async function carregarStatus() {
   }
 }
 
-playBtn.addEventListener('click', async () => {
-  if (!abaAtivaId) return;
+// Clique na barra de progresso → seek
+progressBar.addEventListener('click', async (e) => {
+  if (!abaYouTubeId || duracao <= 0) return;
+  const rect = progressBar.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  const novoTempo = Math.max(0, Math.min(duracao, pct * duracao));
   try {
-    const resp = await chrome.tabs.sendMessage(abaAtivaId, { acao: 'togglePlay' });
+    await chrome.tabs.sendMessage(abaYouTubeId, { acao: 'seekPara', tempo: novoTempo });
+    renderProgresso(novoTempo);
+  } catch {}
+});
+
+playBtn.addEventListener('click', async () => {
+  if (!abaYouTubeId) return;
+  try {
+    const resp = await chrome.tabs.sendMessage(abaYouTubeId, { acao: 'togglePlay' });
     if (resp && typeof resp.tocando === 'boolean') {
       tocando = resp.tocando;
       renderPlayIcon();
@@ -136,14 +204,14 @@ playBtn.addEventListener('click', async () => {
 });
 
 syncBtn.addEventListener('click', async () => {
-  if (!abaAtivaId) return;
+  if (!abaYouTubeId) return;
 
   syncBtn.disabled = true;
   const textoOriginal = syncBtn.textContent;
   syncBtn.textContent = 'Enviando...';
 
   try {
-    await chrome.tabs.sendMessage(abaAtivaId, { acao: 'forcarSincronizar' });
+    await chrome.tabs.sendMessage(abaYouTubeId, { acao: 'forcarSincronizar' });
     syncBtn.textContent = 'Sincronizado ✓';
   } catch {
     syncBtn.textContent = 'Falhou';
@@ -158,5 +226,17 @@ syncBtn.addEventListener('click', async () => {
 carregarVideoAtivo();
 carregarStatus();
 
-const intervalo = setInterval(carregarStatus, 1000);
-window.addEventListener('unload', () => clearInterval(intervalo));
+// Poll do estado do player + status (a cada 500ms a barra anda suave)
+const intervaloPlayer = setInterval(() => {
+  if (!abaYouTubeId) {
+    carregarVideoAtivo();
+  } else {
+    atualizarEstadoPlayer();
+  }
+}, 500);
+const intervaloStatus = setInterval(carregarStatus, 1500);
+
+window.addEventListener('unload', () => {
+  clearInterval(intervaloPlayer);
+  clearInterval(intervaloStatus);
+});
